@@ -3,6 +3,8 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var bcrypt = require('bcrypt-nodejs');
+
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -91,23 +93,28 @@ app.post('/login',
           if(model === null) {
             res.redirect('/login');
           }
-          if(password === model.get('password')){
-            req.session.regenerate(function(){
-            req.session.user = req.body.username;
-            res.redirect('/');
-            });
-          }
-          else{
-            res.redirect('/login');
-          }
+
+          var salt = model.get('created_at');
+          bcrypt.hash(password, salt, null, function(err, hash) {
+            console.log('hash',hash);
+            console.log('from db', model.get('password'));
+
+            if(hash === model.get('password')){
+              req.session.regenerate(function(){
+              req.session.user = req.body.username;
+              res.redirect('/');
+              });
+            } else{
+              res.redirect('/login');
+            }
+
+          });
+          
         });
-      
-        
     }
     else {
        res.redirect('/login');
-    }    
-
+    }
 });
 
 app.get('/logout', function(request, response){
