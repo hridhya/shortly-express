@@ -3,7 +3,7 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
-var bcrypt = require('bcrypt-nodejs');
+var bcrypt = require('bcrypt');
 
 
 var db = require('./app/config');
@@ -63,13 +63,22 @@ app.post('/signup',
     var username = req.body.username;
     var password = req.body.password;
 
-    new User({
-        'username': username,
-        'password': password
-    }).save().then(function(){
-      // console.log('success: ');
-      res.redirect('/');
-      res.send(200);
+    bcrypt.hash(password, '$2a$10$somethingheretobeasalt', function(err, result) {
+      if (err) {
+        console.log('err: ', err);      
+      } else {
+        console.log('create result: ', result);
+
+        new User({
+          'username': username,
+          'password': result
+        }).save().then(function(){
+          // console.log('success: ');
+          res.redirect('/');
+          res.send(200);
+        });
+
+      }
     });
 });
 
@@ -89,15 +98,15 @@ app.post('/login',
         .fetch()
         .then(function(model) {
           //console.log('username', model);
-          //console.log('password', model.get('password'));
+          //console.log('password', model);
           if(model === null) {
             res.redirect('/login');
           }
 
-          var salt = model.get('created_at');
-          bcrypt.hash(password, salt, null, function(err, hash) {
-            console.log('hash',hash);
-            console.log('from db', model.get('password'));
+          //var salt = '$2a$10$' + model.get('created_at');
+          bcrypt.hash(password, '$2a$10$somethingheretobeasalt', function(err, hash) {
+            //console.log('hash',hash);
+            //console.log('from db', model.get('password'));
 
             if(hash === model.get('password')){
               req.session.regenerate(function(){
