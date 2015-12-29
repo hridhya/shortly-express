@@ -4,6 +4,41 @@ var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
 var bcrypt = require('bcrypt');
+var passport = require('passport');
+var GitHubStrategy = require('passport-github2').Strategy;
+
+var GITHUB_CLIENT_ID = "48ea8721650d063deaa0";
+var GITHUB_CLIENT_SECRET = "595733bb862092d9553382453f8853a96d64f952";
+
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+
+passport.deserializeUser(function(obj, done) {
+  done(null, obj);
+});
+
+// Use the GitHubStrategy within Passport.
+//   Strategies in Passport require a `verify` function, which accept
+//   credentials (in this case, an accessToken, refreshToken, and GitHub
+//   profile), and invoke a callback with a user object.
+passport.use(new GitHubStrategy({
+    clientID: GITHUB_CLIENT_ID,
+    clientSecret: GITHUB_CLIENT_SECRET,
+    callbackURL: "http://127.0.0.1:4568/auth/github/callback"
+  },
+  function(accessToken, refreshToken, profile, done) {
+    // asynchronous verification, for effect...
+    process.nextTick(function () {
+      
+      // To keep the example simple, the user's GitHub profile is returned to
+      // represent the logged-in user.  In a typical application, you would want
+      // to associate the GitHub account with a user record in your database,
+      // and return that user instead.
+      return done(null, profile);
+    });
+  }
+));
 
 
 var db = require('./app/config');
@@ -29,108 +64,54 @@ app.use(session(
   { secret: 'hey'}
 ));
 
-function restrict(req, res, next) {
-  if (req.session.user) {
-    next();
-  } else {
-    req.session.error = 'Access denied!';
-    res.redirect('/login');
+app.use(passport.initialize());
+app.use(passport.session());
+
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) { 
+    return next(); 
   }
+  res.redirect('/login');
 }
 
-app.get('/',
-function(req, res) {
-  restrict(req, res, function(next) {
-    res.render('index');
-  });
-});
-
-app.get('/create',
-function(req, res) {
-  restrict(req, res, function(next) {
-    res.render('index');
-  });
-});
-
-app.get('/signup', 
-function(req, res) {
-  res.render('signup');
+app.get('/', ensureAuthenticated, function(req, res) {
+  res.render('index');
 });
 
 
-app.post('/signup',
-  function(req, res){
-    var username = req.body.username;
-    var password = req.body.password;
-
-    bcrypt.hash(password, '$2a$10$somethingheretobeasalt', function(err, result) {
-      if (err) {
-        console.log('err: ', err);      
-      } else {
-        console.log('create result: ', result);
-
-        new User({
-          'username': username,
-          'password': result
-        }).save().then(function(){
-          // console.log('success: ');
-          res.redirect('/');
-          res.send(200);
-        });
-
-      }
-    });
-});
-
-app.get('/login', 
-function(req, res) {
+app.get('/login', function(req, res){
   res.render('login');
 });
 
-app.post('/login',
+// GET /auth/github
+//   Use passport.authenticate() as route middleware to authenticate the
+//   request.  The first step in GitHub authentication will involve redirecting
+//   the user to github.com.  After authorization, GitHub will redirect the user
+//   back to this application at /auth/github/callback
+app.get('/auth/github',
+  passport.authenticate('github', { scope: [ 'user:email' ] }),
   function(req, res){
-    var username = req.body.username;
-    var password = req.body.password;
-    if(req.body.username && req.body.password) {
+    // The request will be redirected to GitHub for authentication, so this
+    // function will not be called.
+  });
 
+// GET /auth/github/callback
+//   Use passport.authenticate() as route middleware to authenticate the
+//   request.  If authentication fails, the user will be redirected back to the
+//   login page.  Otherwise, the primary route function will be called,
+//   which, in this example, will redirect the user to the home page.
+app.get('/auth/github/callback', 
+  passport.authenticate('github', { failureRedirect: '/login' }),
+  function(req, res) {
+    res.redirect('/');
+  });
 
-      new User({'username': username})
-        .fetch()
-        .then(function(model) {
-          //console.log('username', model);
-          //console.log('password', model);
-          if(model === null) {
-            res.redirect('/login');
-          }
-
-          //var salt = '$2a$10$' + model.get('created_at');
-          bcrypt.hash(password, '$2a$10$somethingheretobeasalt', function(err, hash) {
-            //console.log('hash',hash);
-            //console.log('from db', model.get('password'));
-
-            if(hash === model.get('password')){
-              req.session.regenerate(function(){
-              req.session.user = req.body.username;
-              res.redirect('/');
-              });
-            } else{
-              res.redirect('/login');
-            }
-
-          });
-          
-        });
-    }
-    else {
-       res.redirect('/login');
-    }
+app.get('/logout', function(req, res){
+  req.logout();
+  res.redirect('/');
 });
 
-app.get('/logout', function(request, response){
-    request.session.destroy(function(){
-        response.redirect('/login');
-    });
-});
+
 
 app.get('/links', 
 function(req, res) {
@@ -145,9 +126,6 @@ app.post('/links',
 function(req, res) {
 
   var uri = req.body.url;
-  // uri = 'https://roflzoo.com/';
-  //console.log(uri);
-
 
   if (!util.isValidUrl(uri)) {
     console.log('Not a valid url: ', uri);
@@ -177,11 +155,6 @@ function(req, res) {
     }
   });
 });
-
-/************************************************************/
-// Write your authentication routes here
-/************************************************************/
-
 
 
 /************************************************************/
