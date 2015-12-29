@@ -83,13 +83,16 @@ app.post('/login',
 
 app.get('/links', 
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.send(200, links.models);
+  restrict(req, res, function(next) {
+    Links.reset().fetch().then(function(links) {
+      res.send(200, links.models);
+    });
   });
 });
 
 app.post('/links', 
 function(req, res) {
+
   var uri = req.body.url;
   // uri = 'https://roflzoo.com/';
   //console.log(uri);
