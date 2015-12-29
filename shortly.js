@@ -110,6 +110,12 @@ app.post('/login',
 
 });
 
+app.get('/logout', function(request, response){
+    request.session.destroy(function(){
+        response.redirect('/login');
+    });
+});
+
 app.get('/links', 
 function(req, res) {
   restrict(req, res, function(next) {
