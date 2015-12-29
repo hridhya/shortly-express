@@ -2,7 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
-
+var session = require('express-session');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -22,15 +22,63 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
+// Initialize session
+app.use(session(
+  { secret: 'hey'}
+));
 
-app.get('/', 
+function restrict(req, res, next) {
+  if (req.session.user) {
+    next();
+  } else {
+    req.session.error = 'Access denied!';
+    res.redirect('/login');
+  }
+}
+
+app.get('/',
 function(req, res) {
-  res.render('index');
+  restrict(req, res, function(next) {
+    res.render('index');
+  });
 });
 
-app.get('/create', 
+app.get('/create',
 function(req, res) {
-  res.render('index');
+  restrict(req, res, function(next) {
+    res.render('index');
+  });
+});
+
+// app.get('/signup', 
+// function(req, res) {
+//   res.render('signup');
+// });
+
+app.get('/login', 
+function(req, res) {
+  res.render('login');
+});
+
+app.post('/login',
+  function(req, res){
+    if(req.body.username && req.body.password) {
+      
+        req.session.regenerate(function(){
+        req.session.user = req.body.username;
+        res.redirect('/restricted');
+        });
+      // console.log('req: ', req);
+      // new User({username: req.body.username, password: req.body.password}).save().then(function(model) {
+  
+      // });
+      //res.send(200);
+    }
+
+    else {
+       res.redirect('login');
+    }    
+
 });
 
 app.get('/links', 
@@ -43,6 +91,9 @@ function(req, res) {
 app.post('/links', 
 function(req, res) {
   var uri = req.body.url;
+  // uri = 'https://roflzoo.com/';
+  //console.log(uri);
+
 
   if (!util.isValidUrl(uri)) {
     console.log('Not a valid url: ', uri);
@@ -51,6 +102,7 @@ function(req, res) {
 
   new Link({ url: uri }).fetch().then(function(found) {
     if (found) {
+      //console.log('found: ', found);
       res.send(200, found.attributes);
     } else {
       util.getUrlTitle(uri, function(err, title) {
