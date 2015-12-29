@@ -50,10 +50,26 @@ function(req, res) {
   });
 });
 
-// app.get('/signup', 
-// function(req, res) {
-//   res.render('signup');
-// });
+app.get('/signup', 
+function(req, res) {
+  res.render('signup');
+});
+
+
+app.post('/signup',
+  function(req, res){
+    var username = req.body.username;
+    var password = req.body.password;
+
+    new User({
+        'username': username,
+        'password': password
+    }).save().then(function(){
+      // console.log('success: ');
+      res.redirect('/');
+      res.send(200);
+    });
+});
 
 app.get('/login', 
 function(req, res) {
@@ -68,11 +84,6 @@ app.post('/login',
         req.session.user = req.body.username;
         res.redirect('/restricted');
         });
-      // console.log('req: ', req);
-      // new User({username: req.body.username, password: req.body.password}).save().then(function(model) {
-  
-      // });
-      //res.send(200);
     }
 
     else {
