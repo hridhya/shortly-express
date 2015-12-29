@@ -78,16 +78,34 @@ function(req, res) {
 
 app.post('/login',
   function(req, res){
+    var username = req.body.username;
+    var password = req.body.password;
     if(req.body.username && req.body.password) {
-      
-        req.session.regenerate(function(){
-        req.session.user = req.body.username;
-        res.redirect('/restricted');
-        });
-    }
 
+
+      new User({'username': username})
+        .fetch()
+        .then(function(model) {
+          //console.log('username', model);
+          //console.log('password', model.get('password'));
+          if(model === null) {
+            res.redirect('/login');
+          }
+          if(password === model.get('password')){
+            req.session.regenerate(function(){
+            req.session.user = req.body.username;
+            res.redirect('/');
+            });
+          }
+          else{
+            res.redirect('/login');
+          }
+        });
+      
+        
+    }
     else {
-       res.redirect('login');
+       res.redirect('/login');
     }    
 
 });
